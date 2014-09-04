@@ -1,0 +1,130 @@
+package com.fid;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.apache.poi.hssf.usermodel.HSSFRichTextString;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+public class CreateExcelFile {
+	public static void main(String[] args) {
+		try {
+			String xlsFile = "C:\\Users\\a521927\\Documents\\SLS\\SLS_SIT.xls";
+			String tempFile = "C:\\Users\\a521927\\Documents\\SLS\\temp.txt";
+			String logFile = "C:\\Users\\a521927\\Documents\\SLS\\sls_sit.txt";
+			String startElement = "<ECASLS1_REQUEST>";
+			
+			ArrayList<String> tagList = new ArrayList<String>();
+			tagList.add("PRODUCT_ID");
+			tagList.add("ACCOUNT_COUNT");
+//			tagList.add("status");
+//			tagList.add("responseSize");
+//			tagList.add("operation");
+//			tagList.add("userID");
+//			tagList.add("TOTAL_RESPONSE_TIME");
+//			tagList.add("DATA_ACCESS_TIME");
+//			tagList.add("TRANS_IN_TIME");
+//			tagList.add("TRANS_OUT_TIME");
+
+			DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory
+					.newInstance();
+			DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+
+			HSSFWorkbook hwb = new HSSFWorkbook();
+			HSSFSheet sheet = hwb.createSheet("LogDetails");
+			FileOutputStream fileOut = new FileOutputStream(xlsFile);
+			HSSFRow rowhead = sheet.createRow((int) 0);
+			int headColumnCount = 0;
+			for (String tag : tagList) {
+				rowhead.createCell((int) headColumnCount++).setCellValue(
+						new HSSFRichTextString(tag));
+			}
+
+			try {
+				// Open the file that is the first
+				// command line parameter
+				FileInputStream fstream = new FileInputStream(logFile);
+				// Get the object of DataInputStream
+				DataInputStream in = new DataInputStream(fstream);
+				BufferedReader br = new BufferedReader(
+						new InputStreamReader(in));
+				String strLine;
+
+				int rowIndex = 1;
+
+				// Read File Line By Line
+				while ((strLine = br.readLine()) != null) {
+					if (strLine.contains(startElement)) {
+						int startIndex = strLine.indexOf(startElement);
+						String reqLogMsg = strLine.substring(startIndex);
+						FileWriter fwstream = new FileWriter(tempFile);
+						BufferedWriter out = new BufferedWriter(fwstream);
+						System.out.println("Writing message in Temp File " + reqLogMsg);
+						out.write(reqLogMsg);
+						out.close();
+						Document document = docBuilder.parse(tempFile);
+						document.getDocumentElement().normalize();
+
+						NodeList nodeList = document
+								.getElementsByTagName("ECASLS1_REQUEST");
+						HSSFRow row = sheet.createRow((int) rowIndex++);
+						for (int i = 0; i < nodeList.getLength(); i++) {
+							Node node = nodeList.item(i);
+							if (node.getNodeType() == Node.ELEMENT_NODE) {
+								Element element = (Element) node;
+								
+								int columnIndex = 0;
+								
+								//timeStamp
+								for (String tag : tagList) {
+									NodeList timeStampNodeList = element
+											.getElementsByTagName(tag);
+									Element timeStampElement = (Element) timeStampNodeList
+											.item(0);
+
+									NodeList timeStampChildNodeList = timeStampElement
+											.getChildNodes();
+									String timeStampNodeValue = ((Node) timeStampChildNodeList
+											.item(0)).getNodeValue();
+									System.out.println(timeStampNodeValue + "---");
+
+									row.createCell((int) columnIndex++).setCellValue(
+											new HSSFRichTextString(timeStampNodeValue));
+								}
+							}
+
+						}
+
+						System.out.println(reqLogMsg);
+					}
+				}
+
+				// Close the input stream
+				in.close();
+			} catch (Exception e) {// Catch exception if any
+				System.err.println("Error: " + e.getMessage());
+			}
+
+			hwb.write(fileOut);
+			fileOut.close();
+
+			System.out.println("Your excel file has been generated!");
+		} catch (Exception ex) {
+			System.out.println(ex);
+		}
+	}
+}
